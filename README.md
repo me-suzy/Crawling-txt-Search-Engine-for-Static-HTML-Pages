@@ -62,8 +62,11 @@ Verificați instalarea în CMD cu: python --version
 # Instalare Node.js:
 
 Descărcați și instalați Node.js de la https://nodejs.org/
+
 Verificați instalarea în CMD cu:
-Copynode --version
+
+node --version
+
 npm --version
 
 
@@ -71,6 +74,7 @@ npm --version
 # Rularea serverului local:
 
 Deschideți CMD Administrator în folderul proiectului.
+
 Rulați comanda: python -m http.server 8000
 
 
