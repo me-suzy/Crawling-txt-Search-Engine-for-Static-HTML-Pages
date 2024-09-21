@@ -17,7 +17,7 @@ Scopul: Indexează conținutul paginilor HTML statice și creează fișiere de o
 1. Definește directoarele de input și output.
 2. Parcurge toate fișierele HTML din directorul de input.
 3. Pentru fiecare fișier HTML:
-   - **Extrage informațiile relevante:**
+   - Extrage informațiile relevante:
    - Procesează și filtrează conținutul.
    - Salvează informațiile în fișiere de output.
 4. Generează raport despre fișierele procesate și eventualele erori.
@@ -53,8 +53,8 @@ Scopul: Oferă o interfață pentru căutarea în conținutul indexat.
 - Descărcați și instalați Node.js de la https://nodejs.org/
 - Verificați instalarea în CMD cu:
 
-node --version
-npm --version
+  `node --version`
+  `npm --version`
 
 ### Rularea serverului local:
 - Deschideți CMD Administrator în folderul proiectului.
