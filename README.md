@@ -54,6 +54,7 @@ Scopul: Oferă o interfață pentru căutarea în conținutul indexat.
 - Verificați instalarea în CMD cu:
 
   `node --version`
+  
   `npm --version`
 
 ### Rularea serverului local:
