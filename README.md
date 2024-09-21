@@ -1,5 +1,23 @@
 # Search Engine for Static HTML Pages
 
+## Descriere Proiect:
+Acest proiect constă într-un motor de căutare personalizat pentru pagini HTML statice. Are două componente principale: un script Python pentru indexarea conținutului și o interfață web HTML/JavaScript pentru căutare.
+
+### Componenta Python (indexer.py):
+Scopul: Indexează conținutul paginilor HTML statice și creează fișiere de output pentru căutare.
+
+**Funcționalități principale:**
+- Parcurge recursiv un director specificat pentru fișiere HTML.
+- Extrage informații relevante din fiecare fișier HTML (titlu, URL canonical, dată, conținut).
+- Normalizează textul (elimină diacritice, convertește la lowercase).
+- Filtrează conținutul nedorit.
+- Salvează informațiile extrase în fișiere de output (.txt).
+
+
+
+
+# Search Engine for Static HTML Pages
+
 # Descriere Proiect:
 
 Acest proiect constă într-un motor de căutare personalizat pentru pagini HTML statice. Are două componente principale: un script Python pentru indexarea conținutului și o interfață web HTML/JavaScript pentru căutare.
