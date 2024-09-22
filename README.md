@@ -52,14 +52,14 @@ Scopul: Oferă o interfață pentru căutarea în conținutul indexat.
 
 Fisierul `GPT TEST.py` va indexa continutul tagurilor urmatoare din fiecare fisier html:
 
-- <title>(.*?)</title>
-- <link rel="canonical" href="(.?)" />
-- <meta name="description" content="(.?)">
-- <h1>(.?)</h1>
-- <h1 class="custom-h1" itemprop="name">(.?)</h1>
-- <h2 class="text_obisnuit2">(.?)</h2>
-- <h3 class="text_obisnuit2">(.?)</h3>
-- <p class="text_obisnuit">(.?)</p>
+<title>(.*?)</title>
+<link rel="canonical" href="(.?)" />
+<meta name="description" content="(.?)">
+<h1>(.?)</h1>
+<h1 class="custom-h1" itemprop="name">(.?)</h1>
+<h2 class="text_obisnuit2">(.?)</h2>
+<h3 class="text_obisnuit2">(.?)</h3>
+<p class="text_obisnuit">(.?)</p>
 
 ### Instalare Node.js:
 - Descărcați și instalați Node.js de la https://nodejs.org/
