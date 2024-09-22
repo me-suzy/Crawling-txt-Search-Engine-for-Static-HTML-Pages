@@ -2,6 +2,8 @@ import os
 import re
 from bs4 import BeautifulSoup
 import unicodedata
+import json
+
 
 # Funcția care normalizează textul: elimină diacriticele și convertește la litere mici
 def normalize_text(text):
@@ -12,21 +14,15 @@ def normalize_text(text):
 
 # Funcția care evidențiază termenii căutați în textul returnat (cu bold)
 def highlight_search_term(text, search_term):
-    # Normalizează termenul căutat și textul pentru comparație
     normalized_text = normalize_text(text)
     normalized_search_term = normalize_text(search_term)
-
-    # Căutăm toate aparițiile termenului căutat în textul normalizat
     matches = [(m.start(), m.end()) for m in re.finditer(re.escape(normalized_search_term), normalized_text)]
-
-    # Evidențiere în textul original pentru a păstra diacriticele și forma corectă
     highlighted_text = ""
     last_index = 0
     for start, end in matches:
         highlighted_text += text[last_index:start] + f"<b>{text[start:end]}</b>"
         last_index = end
     highlighted_text += text[last_index:]
-
     return highlighted_text
 
 # Funcția care extrage informații dintr-un fișier HTML și le formatează
@@ -109,9 +105,15 @@ def crawl_and_save(folder_path, output_folder, search_terms):
     current_file.close()
     indexed_files.append(f'output_{file_counter}.txt')
 
+    # Create file_list.json
+    with open(os.path.join(output_folder, 'file_list.json'), 'w', encoding='utf-8') as json_file:
+        json.dump(indexed_files, json_file, indent=2)
+
     print("\nFișiere .txt create:")
     for file in indexed_files:
         print(file)
+
+    print("\nfile_list.json creat cu succes.")
 
     if error_files:
         print("\nFișiere cu erori la indexare:")
@@ -123,24 +125,51 @@ def crawl_and_save(folder_path, output_folder, search_terms):
     return file_counter
 
 # Funcția de căutare care utilizează normalizarea textului și evidențiază termenii
-def search_in_files(search_term, output_folder):
+def search_in_files(search_term, output_folder, debug=False):
     search_term = normalize_text(search_term)
     results_found = False
     for root, dirs, files in os.walk(output_folder):
-        for file in files:
+        for file in sorted(files):  # Sortăm fișierele pentru a le procesa în ordine
             if file.endswith('.txt'):
                 file_path = os.path.join(root, file)
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = normalize_text(f.read())
-                    if re.search(re.escape(search_term), content):
-                        print(f"Rezultatul căutării găsit în: {file_path}")
-                        results_found = True
+                if debug:
+                    print(f"Căutare în fișierul: {file_path}")
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        normalized_content = normalize_text(content)
+                        if debug:
+                            print(f"Lungimea conținutului: {len(content)} caractere")
+                            print(f"Lungimea conținutului normalizat: {len(normalized_content)} caractere")
+
+                        if re.search(re.escape(search_term), normalized_content):
+                            print(f"\nRezultatul căutării găsit în: {file_path}")
+                            results_found = True
+
+                            matches = re.finditer(re.escape(search_term), normalized_content)
+                            for match in matches:
+                                start = max(0, match.start() - 100)
+                                end = min(len(normalized_content), match.end() + 100)
+                                context = normalized_content[start:end]
+
+                                original_start = len(normalize_text(content[:start]))
+                                original_end = len(normalize_text(content[:end]))
+                                original_context = content[original_start:original_end]
+
+                                highlighted_context = highlight_search_term(original_context, search_term)
+                                print(f"...{highlighted_context}...")
+                                print("--------")
+                        elif debug:
+                            print(f"Nu s-au găsit rezultate în {file_path}")
+                except Exception as e:
+                    print(f"Eroare la citirea fișierului {file_path}: {str(e)}")
+
     if not results_found:
-        print("Nu s-au găsit rezultate.")
+        print("Nu s-au găsit rezultate în niciun fișier.")
 
 # Setează folderele de input și output
-html_folder = r'd:\100'
-output_folder = r'd:\100\Output'
+html_folder = r'e:\ro'
+output_folder = r'e:\ro\Output'
 search_terms = ['iesiţi la aer', 'iesiti la aer']
 
 # Crează folderul de output dacă nu există
@@ -154,5 +183,5 @@ search_term = "iesiti la aer"
 num_files = crawl_and_save(html_folder, output_folder, search_terms)
 print(f"\nProcesul de crawling și salvare a fost finalizat. {num_files} fișiere create.")
 
-# Caută textul dorit în fișierele de output
-search_in_files(search_term, output_folder)
+search_term = "iesiti la aer"
+search_in_files(search_term, output_folder, debug=True)
