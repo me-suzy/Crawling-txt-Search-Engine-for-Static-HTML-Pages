@@ -54,12 +54,12 @@ Fisierul `GPT TEST.py` va indexa continutul tagurilor urmatoare din fiecare fisi
 
 1. `<title>(.*?)</title>`
 2. `<link rel="canonical" href="(.?)" />`
-3. <meta name="description" content="(.?)">
-4. <h1>(.?)</h1>
-5. <h1 class="custom-h1" itemprop="name">(.?)</h1>
-6. <h2 class="text_obisnuit2">(.?)</h2>
-7. <h3 class="text_obisnuit2">(.?)</h3>
-8. <p class="text_obisnuit">(.?)</p>
+3. `<meta name="description" content="(.?)">`
+4. `<h1>(.?)</h1>`
+5. `<h1 class="custom-h1" itemprop="name">(.?)</h1>`
+6. `<h2 class="text_obisnuit2">(.?)</h2>`
+7. `<h3 class="text_obisnuit2">(.?)</h3>`
+8. `<p class="text_obisnuit">(.?)</p>`
 
 ### Instalare Node.js:
 - Descărcați și instalați Node.js de la https://nodejs.org/
