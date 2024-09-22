@@ -8,216 +8,142 @@
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
         #results { margin-top: 20px; }
         .result { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
-        .title { font-size: 1.2em; font-weight: bold; }
-        .date { font-style: italic; color: #666; }
         .highlight { background-color: yellow; font-weight: bold; }
+        #debug { margin-top: 20px; border: 1px solid #ccc; padding: 10px; white-space: pre-wrap; }
     </style>
 </head>
 <body>
     <h1>Căutare în articole</h1>
-    <input type="text" id="searchInput" placeholder="Introduceți cuvintele de căutat">
-    <button onclick="search()">Caută</button>
-	
+    
+    <input type="text" id="searchInput" placeholder="Introduceți fraza de căutat">
+    <button onclick="search()">Caută</button><br><br>
+
     <div id="results"></div>
+    <div id="debug"></div>
 
     <script>
-        const NUM_FILES = 5;  // Numărul de fișiere .txt care trebuie încărcate
         let articles = [];
+        let debugInfo = [];
 
-        // Funcție pentru a evidenția textul căutat
-        function highlightText(text, query) {
-            const regex = new RegExp(`(${query})`, 'gi');
-            return text.replace(regex, '<span class="highlight">$1</span>');
+        function log(message) {
+            console.log(message);
+            debugInfo.push(message);
+            document.getElementById('debug').textContent = debugInfo.join('\n');
         }
 
-        // Funcție pentru a încărca articolele din fișierele text
-function loadArticles() {
-    console.log("Începe încărcarea articolelor...");
-    let filesLoaded = 0;
-
-    for (let i = 1; i <= NUM_FILES; i++) {
-        const xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                console.log(`Răspuns primit pentru fișierul output_${i}.txt: status ${xhr.status}`);
-                if (xhr.status === 200) {
-                    const text = xhr.responseText;
-                    const items = text.split('--------');
-                    items.forEach((item, index) => {
-                        if (item.trim() !== '') {
-                            articles.push({content: item.trim()});
-                        }
-                    });
-                } else {
-                    console.error(`Eroare la încărcarea fișierului output_${i}.txt:`, xhr.status, xhr.statusText);
-                }
-                filesLoaded++;
-                if (filesLoaded === NUM_FILES) {
-                    console.log(`Încărcate ${articles.length} articole din ${NUM_FILES} fișiere.`);
-                    document.getElementById('searchInput').disabled = false;
-                    document.querySelector('button').disabled = false;
-                }
-            }
-        };
-        xhr.open('GET', `output_${i}.txt`, true);
-        xhr.send();
-    }
+function normalizeText(text) {
+    return decodeHtmlEntities(text)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '');
 }
 
-        // Funcția de căutare
+function decodeHtmlEntities(text) {
+    const textArea = document.createElement('textarea');
+    textArea.innerHTML = text;
+    return textArea.value;
+}
+
+        function getFileList() {
+            log("Încercare de obținere a listei de fișiere...");
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', 'file_list.json', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    const fileNames = JSON.parse(xhr.responseText);
+                    log(`Fișiere găsite: ${fileNames.join(', ')}`);
+                    loadArticles(fileNames);
+                } else if (xhr.readyState === 4 && xhr.status !== 200) {
+                    log(`Eroare la obținerea listei de fișiere: ${xhr.status}`);
+                }
+            };
+            xhr.send();
+        }
+
+        function loadArticles(fileNames) {
+            let filesLoaded = 0;
+            articles = [];
+
+            fileNames.forEach((fileName) => {
+                const xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4 && xhr.status === 200) {
+                        const text = xhr.responseText;
+                        const items = text.split('--------');
+                        items.forEach((item) => {
+                            if (item.trim() !== '') {
+                                articles.push({ content: item.trim() });
+                            }
+                        });
+
+                        log(`Fișier încărcat: ${fileName}, articole: ${items.length}`);
+
+                        filesLoaded++;
+                        if (filesLoaded === fileNames.length) {
+                            log(`Încărcate ${articles.length} articole din ${fileNames.length} fișiere.`);
+                        }
+                    } else if (xhr.readyState === 4 && xhr.status !== 200) {
+                        log(`Eroare la încărcarea fișierului ${fileName}: ${xhr.status}`);
+                    }
+                };
+                xhr.open('GET', fileName, true);
+                xhr.send();
+            });
+        }
+
 function search() {
-    if (articles.length === 0) {
-        console.log("Nu s-au încărcat articole. Reîncercați după încărcarea completă.");
-        return;
-    }
-    
-    const query = document.getElementById('searchInput').value.toLowerCase();
+    const query = document.getElementById('searchInput').value.trim();
     const resultsDiv = document.getElementById('results');
     resultsDiv.innerHTML = '';
+    debugInfo = [];
 
-    console.log(`Căutare pentru: "${query}"`);
-    console.log(`Număr total de articole: ${articles.length}`);
-
+    log(`Searching for: "${query}"`);
+    const normalizedQuery = normalizeText(query);
     let foundResults = 0;
 
     articles.forEach((article, index) => {
-        const titleMatch = article.content.match(/<b style='color: blue;'>(.*?)<\/b>/);
-        const dateMatch = article.content.match(/<b style='color: red;'>(.*?)<\/b>/);
-        const canonicalMatch = article.content.match(/<b style='color: green;'>Canonical: (.*?)<\/b>/);
-        
-        // Eliminăm informațiile de identificare și tagurile HTML din conținut
-        let contentText = article.content
-            .replace(/<b style='color: blue;'>.*?<\/b>/, '')
-            .replace(/<b style='color: red;'>.*?<\/b>/, '')
-            .replace(/<b style='color: green;'>.*?<\/b>/, '')
-            .replace(/<.*?>/g, '');
+        const sentences = article.content.split(/(?<=[.!?])\s+/);
+        sentences.forEach((sentence) => {
+            if (normalizeText(sentence).includes(normalizedQuery)) {
+                foundResults++;
+                const highlightedSentence = highlightText(sentence, query);
 
-        const normalizedQuery = removeDiacritics(query);
-        const normalizedContent = removeDiacritics(contentText.toLowerCase());
-        const regex = new RegExp(`\\b${escapeRegExp(normalizedQuery)}\\b`, 'gi');
-        
-        if (regex.test(normalizedContent)) {
-            foundResults++;
-            console.log(`Găsit în articolul ${index + 1}`);
-            const div = document.createElement('div');
-            div.className = 'result';
-            
-            let relevantSentence = '';
-            const sentences = contentText.split(/(?<=[.!?])\s+/);
-            for (let sentence of sentences) {
-                if (regex.test(removeDiacritics(sentence.toLowerCase()))) {
-                    relevantSentence = sentence.trim();
-                    break;  // Oprim după găsirea primei propoziții relevante
-                }
+                const div = document.createElement('div');
+                div.className = 'result';
+                div.innerHTML = highlightedSentence;
+                resultsDiv.appendChild(div);
+
+                log(`Found in article ${index + 1}`);
             }
-
-            div.innerHTML = `
-                ${titleMatch ? titleMatch[0] + '<br>' : ''}
-                ${dateMatch ? dateMatch[0] + '<br>' : ''}
-                ${canonicalMatch ? `<a href="${canonicalMatch[1]}" target="_blank" rel="noopener noreferrer">${canonicalMatch[1]}</a><br><br>` : ''}
-                ${relevantSentence ? highlightText(relevantSentence, query) : 'Nu s-a găsit un paragraf relevant.'}
-            `;
-            resultsDiv.appendChild(div);
-        }
+        });
     });
 
-    console.log(`Rezultate găsite: ${foundResults}`);
-
+    log(`Results found: ${foundResults}`);
     if (foundResults === 0) {
-        resultsDiv.innerHTML = '<p>Nu s-au găsit rezultate.</p>';
+        resultsDiv.innerHTML = '<p>No results found.</p>';
     }
 }
 
 
-
-
-
 function highlightText(text, query) {
-    const normalizedText = removeDiacritics(text.toLowerCase());
-    const normalizedQuery = removeDiacritics(query.toLowerCase());
-    const regex = new RegExp(`(\\b${escapeRegExp(normalizedQuery)}\\b)`, 'gi');
-    let lastIndex = 0;
-    let result = '';
+    // Split the query into individual words and escape special characters for regex use.
+    const words = query.split(/\s+/).map(word => escapeRegExp(decodeHtmlEntities(word)));
 
-    normalizedText.replace(regex, (match, p1, offset) => {
-        const start = offset;
-        const end = start + match.length;
-        result += text.slice(lastIndex, start);
-        result += `<b>${text.slice(start, end)}</b>`;
-        lastIndex = end;
-    });
+    // Create a regex pattern to find all words in the text, ignoring case and whole word boundaries.
+    const regex = new RegExp(`(${words.join("|")})`, 'gi');
 
-    result += text.slice(lastIndex);
-    return result;
+    // Replace found words with highlighted versions.
+    return text.replace(regex, `<span class="highlight">$1</span>`);
 }
 
-function removeDiacritics(text) {
-    return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
+
 
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-
-
-
-function highlightText(text, query) {
-    const normalizedText = removeDiacritics(text.toLowerCase());
-    const normalizedQuery = removeDiacritics(query.toLowerCase());
-    const regex = new RegExp(`(\\b${escapeRegExp(normalizedQuery)}\\b)`, 'gi');
-    let lastIndex = 0;
-    let result = '';
-
-    normalizedText.replace(regex, (match, p1, offset) => {
-        const start = offset;
-        const end = start + match.length;
-        result += text.slice(lastIndex, start);
-        result += `<b>${text.slice(start, end)}</b>`;
-        lastIndex = end;
-    });
-
-    result += text.slice(lastIndex);
-    return result;
-}
-
-
-
-function removeDiacritics(text) {
-    return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-function removeDiacritics(text) {
-    return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-
-
-
-
-
-
-
-
-
-
-
-        // Când utilizatorul apasă "Enter", se va executa căutarea
-        document.getElementById('searchInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                search();
-            }
-        });
-
-        // Încărcăm articolele din fișiere la pornirea paginii
-        loadArticles();
+        window.onload = getFileList;
     </script>
 </body>
 </html>
