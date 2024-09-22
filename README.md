@@ -52,8 +52,8 @@ Scopul: Oferă o interfață pentru căutarea în conținutul indexat.
 
 Fisierul `GPT TEST.py` va indexa continutul tagurilor urmatoare din fiecare fisier html:
 
-1. <title>(.*?)</title>
-2. <link rel="canonical" href="(.?)" />
+1. `<title>(.*?)</title>`
+2. `<link rel="canonical" href="(.?)" />`
 3. <meta name="description" content="(.?)">
 4. <h1>(.?)</h1>
 5. <h1 class="custom-h1" itemprop="name">(.?)</h1>
