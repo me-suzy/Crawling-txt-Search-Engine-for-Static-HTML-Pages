@@ -127,17 +127,26 @@ function search() {
 
 
 function highlightText(text, query) {
-    // Split the query into individual words and escape special characters for regex use.
     const words = query.split(/\s+/).map(word => escapeRegExp(decodeHtmlEntities(word)));
+    let highlightedText = text;
+    let lastIndex = 0;
 
-    // Create a regex pattern to find all words in the text, ignoring case and whole word boundaries.
-    const regex = new RegExp(`(${words.join("|")})`, 'gi');
+    words.forEach(word => {
+        const regex = new RegExp(`\\b${word}\\b`, 'i');
+        const match = regex.exec(highlightedText.slice(lastIndex));
+        if (match) {
+            const startIndex = lastIndex + match.index;
+            const endIndex = startIndex + match[0].length;
+            const before = highlightedText.slice(0, startIndex);
+            const highlighted = `<span class="highlight">${highlightedText.slice(startIndex, endIndex)}</span>`;
+            const after = highlightedText.slice(endIndex);
+            highlightedText = before + highlighted + after;
+            lastIndex = startIndex + highlighted.length;
+        }
+    });
 
-    // Replace found words with highlighted versions.
-    return text.replace(regex, `<span class="highlight">$1</span>`);
+    return highlightedText;
 }
-
-
 
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
