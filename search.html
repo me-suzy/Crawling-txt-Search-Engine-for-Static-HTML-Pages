@@ -3,17 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Căutare în articole</title>
+    <title>Căutare și evidențiere corectă fără punctuație</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
         #results { margin-top: 20px; }
         .result { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
-        .highlight { background-color: yellow; font-weight: bold; }
+        .highlight { font-weight: bold; }
         #debug { margin-top: 20px; border: 1px solid #ccc; padding: 10px; white-space: pre-wrap; }
+        .title { color: black; font-weight: bold; }
+        .date { color: red; }
+        .canonical { color: green; }
+        .search-results { color: black; }
     </style>
 </head>
 <body>
-    <h1>Căutare în articole</h1>
+    <h1>Căutare și evidențiere corectă fără punctuație</h1>
     
     <input type="text" id="searchInput" placeholder="Introduceți fraza de căutat">
     <button onclick="search()">Caută</button><br><br>
@@ -31,37 +35,41 @@
             document.getElementById('debug').textContent = debugInfo.join('\n');
         }
 
-function normalizeText(text) {
-    return decodeHtmlEntities(text)
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, '');
-}
+        function normalizeText(text) {
+            return decodeHtmlEntities(text)
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase();
+        }
 
-function decodeHtmlEntities(text) {
-    const textArea = document.createElement('textarea');
-    textArea.innerHTML = text;
-    return textArea.value;
-}
+        function removePunctuation(text) {
+            return text.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"").replace(/\s{2,}/g," ");
+        }
 
-        function getFileList() {
-            log("Încercare de obținere a listei de fișiere...");
+        function decodeHtmlEntities(text) {
+            const textArea = document.createElement('textarea');
+            textArea.innerHTML = text;
+            return textArea.value;
+        }
+
+        function loadArticles() {
+            log("Încercare de încărcare a articolelor din JSON...");
+
             const xhr = new XMLHttpRequest();
             xhr.open('GET', 'file_list.json', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     const fileNames = JSON.parse(xhr.responseText);
                     log(`Fișiere găsite: ${fileNames.join(', ')}`);
-                    loadArticles(fileNames);
+                    loadArticlesFromFiles(fileNames);
                 } else if (xhr.readyState === 4 && xhr.status !== 200) {
-                    log(`Eroare la obținerea listei de fișiere: ${xhr.status}`);
+                    log(`Eroare la încărcarea fișierului JSON: ${xhr.status}`);
                 }
             };
             xhr.send();
         }
 
-        function loadArticles(fileNames) {
+        function loadArticlesFromFiles(fileNames) {
             let filesLoaded = 0;
             articles = [];
 
@@ -69,19 +77,13 @@ function decodeHtmlEntities(text) {
                 const xhr = new XMLHttpRequest();
                 xhr.onreadystatechange = function() {
                     if (xhr.readyState === 4 && xhr.status === 200) {
-                        const text = xhr.responseText;
-                        const items = text.split('--------');
-                        items.forEach((item) => {
-                            if (item.trim() !== '') {
-                                articles.push({ content: item.trim() });
-                            }
-                        });
-
-                        log(`Fișier încărcat: ${fileName}, articole: ${items.length}`);
-
+                        const fileContent = xhr.responseText.trim();
+                        const separatedArticles = fileContent.split('--------');
+                        articles = articles.concat(separatedArticles.filter(article => article.trim() !== ''));
+                        log(`Fișier încărcat: ${fileName}`);
                         filesLoaded++;
                         if (filesLoaded === fileNames.length) {
-                            log(`Încărcate ${articles.length} articole din ${fileNames.length} fișiere.`);
+                            log("Toate articolele au fost încărcate.");
                         }
                     } else if (xhr.readyState === 4 && xhr.status !== 200) {
                         log(`Eroare la încărcarea fișierului ${fileName}: ${xhr.status}`);
@@ -92,67 +94,104 @@ function decodeHtmlEntities(text) {
             });
         }
 
-function search() {
-    const query = document.getElementById('searchInput').value.trim();
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.innerHTML = '';
-    debugInfo = [];
+        function search() {
+            const query = document.getElementById('searchInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            debugInfo = [];
 
-    log(`Searching for: "${query}"`);
-    const normalizedQuery = normalizeText(query);
-    let foundResults = 0;
+            log(`Căutare pentru: "${query}"`);
+            let foundResults = 0;
 
-    articles.forEach((article, index) => {
-        const sentences = article.content.split(/(?<=[.!?])\s+/);
-        sentences.forEach((sentence) => {
-            if (normalizeText(sentence).includes(normalizedQuery)) {
-                foundResults++;
-                const highlightedSentence = highlightText(sentence, query);
+            articles.forEach((article, index) => {
+                const articleInfo = extractArticleInfo(article);
+                const sentences = article.split(/(?<=[.!?])\s+/);
+                let articleHighlighted = false;
 
-                const div = document.createElement('div');
-                div.className = 'result';
-                div.innerHTML = highlightedSentence;
-                resultsDiv.appendChild(div);
+                sentences.forEach((sentence) => {
+                    const highlightedContent = highlightText(sentence, query);
+                    if (highlightedContent !== sentence && !articleHighlighted) {
+                        foundResults++;
+                        articleHighlighted = true;
+                        const div = document.createElement('div');
+                        div.className = 'result';
+                        div.innerHTML = `
+                            <p class="title">Titlul: ${articleInfo.title}</p>
+                            <p class="date">Data: ${articleInfo.date}</p>
+                            <p class="canonical">Canonical: ${articleInfo.canonical}</p>
+                            <p class="search-results">Rezultatele căutării:</p>
+                            ${highlightedContent}
+                        `;
+                        resultsDiv.appendChild(div);
+                        log(`Găsit în articolul ${index + 1}`);
+                    }
+                });
+            });
 
-                log(`Found in article ${index + 1}`);
+            log(`Rezultate găsite: ${foundResults}`);
+            if (foundResults === 0) {
+                resultsDiv.innerHTML = '<p>Nu s-au găsit rezultate.</p>';
             }
-        });
-    });
-
-    log(`Results found: ${foundResults}`);
-    if (foundResults === 0) {
-        resultsDiv.innerHTML = '<p>No results found.</p>';
-    }
-}
-
-
-function highlightText(text, query) {
-    const words = query.split(/\s+/).map(word => escapeRegExp(decodeHtmlEntities(word)));
-    let highlightedText = text;
-    let lastIndex = 0;
-
-    words.forEach(word => {
-        const regex = new RegExp(`\\b${word}\\b`, 'i');
-        const match = regex.exec(highlightedText.slice(lastIndex));
-        if (match) {
-            const startIndex = lastIndex + match.index;
-            const endIndex = startIndex + match[0].length;
-            const before = highlightedText.slice(0, startIndex);
-            const highlighted = `<span class="highlight">${highlightedText.slice(startIndex, endIndex)}</span>`;
-            const after = highlightedText.slice(endIndex);
-            highlightedText = before + highlighted + after;
-            lastIndex = startIndex + highlighted.length;
         }
-    });
 
-    return highlightedText;
-}
+        function extractArticleInfo(article) {
+            const titleMatch = article.match(/<b style='color: blue;'>(.*?)<\/b>/);
+            const dateMatch = article.match(/<b style='color: red;'>(.*?)<\/b>/);
+            const canonicalMatch = article.match(/<b style='color: green;'>(.*?)<\/b>/);
 
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+            return {
+                title: titleMatch ? titleMatch[1] : 'Titlu nedisponibil',
+                date: dateMatch ? dateMatch[1].replace('In data de: ', '') : 'Dată nedisponibilă',
+                canonical: canonicalMatch ? canonicalMatch[1].replace('Canonical: ', '') : 'URL canonical nedisponibil'
+            };
+        }
 
-        window.onload = getFileList;
+        function highlightText(text, query) {
+            const decodedText = decodeHtmlEntities(text);
+            const decodedQuery = decodeHtmlEntities(query);
+
+            const normalizedText = removePunctuation(normalizeText(decodedText));
+            const normalizedQuery = removePunctuation(normalizeText(decodedQuery));
+            
+            const index = normalizedText.indexOf(normalizedQuery);
+            if (index === -1) return text;
+
+            const originalStartIndex = mapIndexToOriginal(decodedText, normalizedText, index);
+            const originalEndIndex = originalStartIndex + decodedQuery.length;
+
+            const start = decodedText.slice(0, originalStartIndex);
+            const middle = decodedText.slice(originalStartIndex, originalEndIndex);
+            const end = decodedText.slice(originalEndIndex);
+            
+            return encodeHtmlEntities(start) + '<span class="highlight">' + encodeHtmlEntities(middle) + '</span>' + encodeHtmlEntities(end);
+        }
+
+        function mapIndexToOriginal(originalText, normalizedText, normalizedIndex) {
+            let originalIndex = 0;
+            let normalizedCount = 0;
+
+            for (let i = 0; i < originalText.length; i++) {
+                const originalChar = originalText[i];
+                const normalizedChar = normalizedText[normalizedCount];
+
+                if (normalizeText(originalChar) === normalizedChar) {
+                    if (normalizedCount === normalizedIndex) {
+                        return originalIndex;
+                    }
+                    normalizedCount++;
+                }
+                originalIndex++;
+            }
+            return -1;
+        }
+
+        function encodeHtmlEntities(text) {
+            return text.replace(/[\u00A0-\u9999<>\&]/g, function(i) {
+                return '&#'+i.charCodeAt(0)+';';
+            });
+        }
+
+        window.onload = loadArticles;
     </script>
 </body>
 </html>
