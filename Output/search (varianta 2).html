@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Căutare și evidențiere corectă fără punctuație</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        #results { margin-top: 20px; }
+        .result { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+        .highlight { font-weight: bold; }
+        .title { font-weight: bold; color: black; }
+        .date { color: red; }
+        .canonical { color: green; }
+        #debug { margin-top: 20px; border: 1px solid #ccc; padding: 10px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Căutare și evidențiere corectă fără punctuație</h1>
+    
+    <input type="text" id="searchInput" placeholder="Introduceți fraza de căutat">
+    <button onclick="search()">Caută</button><br><br>
+
+    <div id="results"></div>
+    <div id="debug"></div>
+
+    <script>
+        let articles = [];
+        let debugInfo = [];
+
+        // Funcție pentru logare
+        function log(message) {
+            console.log(message);
+            debugInfo.push(message);
+            document.getElementById('debug').textContent = debugInfo.join('\n');
+        }
+
+        // Normalizează textul (elimină diacritice și caractere speciale)
+        function normalizeText(text) {
+            return decodeHtmlEntities(text)
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")  // elimină diacritice
+                .toLowerCase();
+        }
+
+        // Elimină punctuația pentru comparație
+        function removePunctuation(text) {
+            return text.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"").replace(/\s{2,}/g," ");
+        }
+
+        // Decodifică entitățile HTML din text
+        function decodeHtmlEntities(text) {
+            const textArea = document.createElement('textarea');
+            textArea.innerHTML = text;
+            return textArea.value;
+        }
+
+        // Încarcă articolele din JSON și apoi din fișierele menționate
+        function loadArticles() {
+            log("Încercare de încărcare a articolelor din JSON...");
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', 'file_list.json', true); // Specifică fișierul JSON de unde să preiei articolele.
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    const fileNames = JSON.parse(xhr.responseText);
+                    log(`Fișiere găsite: ${fileNames.join(', ')}`);
+                    loadArticlesFromFiles(fileNames);
+                } else if (xhr.readyState === 4 && xhr.status !== 200) {
+                    log(`Eroare la încărcarea fișierului JSON: ${xhr.status}`);
+                }
+            };
+            xhr.send();
+        }
+
+        // Încarcă articolele din fișiere
+        function loadArticlesFromFiles(fileNames) {
+            let filesLoaded = 0;
+            articles = [];
+
+            fileNames.forEach((fileName) => {
+                const xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4 && xhr.status === 200) {
+                        articles.push(xhr.responseText.trim());
+                        log(`Fișier încărcat: ${fileName}`);
+                        filesLoaded++;
+                        if (filesLoaded === fileNames.length) {
+                            log("Toate articolele au fost încărcate.");
+                        }
+                    } else if (xhr.readyState === 4 && xhr.status !== 200) {
+                        log(`Eroare la încărcarea fișierului ${fileName}: ${xhr.status}`);
+                    }
+                };
+                xhr.open('GET', fileName, true); // Specifică modul de încărcare al fișierului
+                xhr.send();
+            });
+        }
+
+        // Funcția de căutare
+        function search() {
+            const query = document.getElementById('searchInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            debugInfo = [];
+
+            log(`Căutare pentru: "${query}"`);
+            let foundResults = 0;
+
+            articles.forEach((article, index) => {
+                // Împărțim articolul în articole individuale pe baza delimitatorului '--------'
+                const individualArticles = article.split('--------');
+                
+                individualArticles.forEach((individualArticle) => {
+                    let title = extractData(individualArticle, 'title');
+                    let date = extractData(individualArticle, 'date');
+                    let canonical = extractData(individualArticle, 'canonical');
+
+                    // Împărțim articolul în propoziții pentru a căuta doar în acele propoziții
+                    const sentences = individualArticle.split(/(?<=[.!?])\s+/);
+
+                    sentences.forEach((sentence) => {
+                        const highlightedContent = highlightText(sentence, query);
+                        if (highlightedContent !== sentence) {  // Dacă fraza a fost găsită și evidențiată
+                            foundResults++;
+                            const div = document.createElement('div');
+                            div.className = 'result';
+
+                            // Afișăm datele formate conform cerințelor
+                            div.innerHTML = `
+							<div class="title">Titlul: ${title}</div>
+							<br>
+							<div class="date">Data: ${date}</div>
+							<br>
+							<div class="canonical">Canonical: ${canonical}</div>
+							<br>
+							<div><strong style="color: #800000;">Rezultatele căutării:</strong> ${highlightedContent}</div>
+
+                            `;
+                            resultsDiv.appendChild(div);
+                            log(`Găsit în articolul ${index + 1}`);
+                        }
+                    });
+                });
+            });
+
+            log(`Rezultate găsite: ${foundResults}`);
+            if (foundResults === 0) {
+                resultsDiv.innerHTML = '<p>Nu s-au găsit rezultate.</p>';
+            }
+        }
+
+        // Funcția pentru evidențierea frazei căutate în propoziție
+        function highlightText(text, query) {
+            // Decodifică entitățile HTML atât în textul căutat, cât și în textul complet
+            const decodedText = decodeHtmlEntities(text);
+            const decodedQuery = decodeHtmlEntities(query);
+
+            // Normalizează și elimină punctuația pentru comparare
+            const normalizedText = removePunctuation(normalizeText(decodedText));
+            const normalizedQuery = removePunctuation(normalizeText(decodedQuery));
+            
+            // Găsim prima potrivire a query-ului normalizat în textul normalizat
+            const index = normalizedText.indexOf(normalizedQuery);
+            if (index === -1) return text;  // Dacă fraza nu a fost găsită
+
+            // Mapăm indexul din textul normalizat la textul original
+            const originalStartIndex = mapIndexToOriginal(decodedText, normalizedText, index);
+            const originalEndIndex = originalStartIndex + decodedQuery.length;
+
+            // Construim textul evidențiat doar pentru porțiunea găsită
+            const start = decodedText.slice(0, originalStartIndex);
+            const middle = decodedText.slice(originalStartIndex, originalEndIndex);
+            const end = decodedText.slice(originalEndIndex);
+            
+            return encodeHtmlEntities(start) + '<span class="highlight">' + encodeHtmlEntities(middle) + '</span>' + encodeHtmlEntities(end);
+        }
+
+        // Mapăm indexul din textul normalizat la textul original
+        function mapIndexToOriginal(originalText, normalizedText, normalizedIndex) {
+            let originalIndex = 0;
+            let normalizedCount = 0;
+
+            for (let i = 0; i < originalText.length; i++) {
+                const originalChar = originalText[i];
+                const normalizedChar = normalizedText[normalizedCount];
+
+                // Comparația între caracterele normalizate
+                if (normalizeText(originalChar) === normalizedChar) {
+                    if (normalizedCount === normalizedIndex) {
+                        return originalIndex;
+                    }
+                    normalizedCount++;
+                }
+                originalIndex++;
+            }
+            return -1;  // În caz că nu se găsește (nu ar trebui să se întâmple)
+        }
+
+        // Funcție pentru encodarea entităților HTML în text
+        function encodeHtmlEntities(text) {
+            return text.replace(/[\u00A0-\u9999<>\&]/g, function(i) {
+                return '&#'+i.charCodeAt(0)+';';
+            });
+        }
+
+        // Funcția pentru extragerea datelor din articol
+        function extractData(article, type) {
+            const dataRegex = {
+                title: /<b style='color: blue;'>(.*?)<\/b>/,
+                date: /<b style='color: red;'>In data de: (.*?)<\/b>/,
+                canonical: /<b style='color: green;'>Canonical: (.*?)<\/b>/
+            };
+            const match = article.match(dataRegex[type]);
+            return match ? match[1] : '';
+        }
+
+        window.onload = loadArticles;
+    </script>
+</body>
+</html>
